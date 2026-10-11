@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Заказы и исполнители</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#1c1e21; --muted:#6b7280; --blue:#2563eb; --green:#16a34a; --red:#dc2626; --line:#e5e7eb; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  header b { font-size: 18px; }
+  .hright { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; color: var(--muted); }
+  .chip { background: #eef2ff; color: #3730a3; padding: 4px 10px; border-radius: 999px; font-weight: 700; }
+  main { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .box { max-width: 400px; margin: 40px 16px; background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+  #authView { margin-inline: auto; }
+  .panel { background: var(--card); padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.08); margin-bottom: 16px; min-width: 0; }
+  h2 { margin: 0 0 10px; font-size: 19px; }
+  h3 { margin: 18px 0 8px; font-size: 15px; }
+  label { font-size: 14px; color: var(--muted); }
+  input, textarea, select { width: 100%; padding: 10px; margin: 6px 0 14px; border: 1px solid #ccc; border-radius: 8px; font: inherit; background: var(--card); color: var(--text); }
+  button { padding: 10px 14px; background: var(--blue); color: #fff; border: none; border-radius: 8px; font: inherit; font-weight: 700; cursor: pointer; }
+  button.full { width: 100%; }
+  button.ghost { background: transparent; color: var(--blue); border: 1px solid var(--blue); }
+  button.green { background: var(--green); }
+  button.red { background: var(--red); }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { min-height: 20px; font-size: 14px; margin-bottom: 10px; }
+  .err { color: var(--red); } .ok { color: var(--green); }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { background: var(--card); color: var(--text); border: 1px solid var(--line); }
+  .tabs button.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .order { border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin-bottom: 10px; background: var(--card); min-width: 0; }
+  .row { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .t { font-weight: 700; overflow-wrap: anywhere; }
+  .price { font-weight: 700; white-space: nowrap; text-align: right; }
+  .price small { display: block; font-weight: 400; color: var(--muted); }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 6px; overflow-wrap: anywhere; }
+  .desc { margin-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; }
+  .badge.cat { background: #f3e8ff; color: #6b21a8; }
+  .badge.accepted { background: #fef3c7; color: #92400e; }
+  .badge.done { background: #dbeafe; color: #1e40af; }
+  .badge.paid { background: #dcfce7; color: #166534; }
+  .actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .empty { color: var(--muted); text-align: center; padding: 22px 0; }
+  .big { font-size: 28px; font-weight: 800; }
+  .hint { font-size: 13px; color: var(--muted); margin: -8px 0 14px; }
+  .note { font-size: 12px; color: var(--muted); margin-top: 16px; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--blue); font-weight: 700; }
+  .hide { display: none; }
+  #chatHead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+  #chatHead h2 { margin: 0; font-size: 17px; overflow-wrap: anywhere; }
+  #chatMsgs { height: 280px; overflow-y: auto; background: var(--bg); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 14px; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .bubble.mine { align-self: flex-end; background: var(--blue); color: #fff; }
+  .bubble.theirs { align-self: flex-start; background: var(--card); border: 1px solid var(--line); }
+  .bubble small { display: block; opacity: .7; font-size: 11px; margin-bottom: 2px; }
+  #chatSend { display: flex; gap: 8px; margin-top: 10px; }
+  #chatSend input { margin: 0; }
+  #chatAgree { margin-top: 10px; }
+  #chatClosed { text-align: center; color: var(--muted); padding: 10px 0 0; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div id="authView" class="box hide">
+  <h2 id="authTitle">Вход</h2>
+  <div id="authMsg" class="msg"></div>
+  <div id="regFields" class="hide">
+    <label for="name">Имя</label>
+    <input id="name" placeholder="Как вас зовут">
+    <label for="role">Я хочу</label>
+    <select id="role">
+      <option value="customer">Заказывать услуги (заказчик)</option>
+      <option value="performer">Выполнять заказы и зарабатывать (исполнитель)</option>
+    </select>
+  </div>
+  <label for="email">Почта</label>
+  <input type="email" id="email" placeholder="you@example.com">
+  <label for="pass">Пароль (минимум 6 символов)</label>
+  <input type="password" id="pass">
+  <button id="authBtn" class="full">Войти</button>
+  <p style="text-align:center;margin:14px 0 0;font-size:14px">
+    <a href="#" id="toggleAuth">Нет аккаунта? Зарегистрироваться</a>
+  </p>
+</div>
+
+<div id="appView" class="hide">
+  <header>
+    <b>Заказы</b>
+    <span class="hright"><span id="who"></span><span class="chip" id="balChip">0 акон</span><button id="roleSwitch" class="ghost"></button><button id="logoutBtn" class="ghost">Выйти</button></span>
+  </header>
+  <main>
+    <div id="appMsg" class="msg"></div>
+
+    <div id="adminBox" class="panel hide">
+      <h2>Мой доход</h2>
+      <div class="big" id="admTotal">0 акон</div>
+      <div class="meta" id="admTotalT"></div>
+      <div class="meta">Комиссия с заказов (15%): <b id="admFees">0</b> · подписки: <b id="admSubs">0</b></div>
+      <div class="meta">Ожидается с заказов в работе: <b id="admPending">0</b> акон</div>
+
+      <h3>Продать аконы</h3>
+      <div class="meta">Аконы появляются только за деньги: вы вводите, сколько тенге получили, а сайт сам начисляет аконы (5 акон = 1 ₸).</div>
+      <label for="crUser" style="display:block;margin-top:10px">Кто заплатил</label>
+      <select id="crUser"></select>
+      <label for="crAmt">Сколько тенге вы получили</label>
+      <input id="crAmt" type="number" min="1" step="1" inputmode="numeric">
+      <div class="hint" id="crHint"></div>
+      <button id="crBtn" class="green full">Начислить аконы за оплату</button>
+
+      <h3>Последние начисления аконов</h3>
+      <div class="meta" id="admBuysTotal"></div>
+      <div id="admBuys"></div>
+
+      <div id="giftWrap" class="hide">
+        <h3>Подарить аконы (только владелец)</h3>
+        <label for="gfUser">Кому</label>
+        <select id="gfUser"></select>
+        <label for="gfAmt">Сколько аконов</label>
+        <input id="gfAmt" type="number" min="1" step="1" inputmode="numeric">
+        <label for="gfNote">Причина (необязательно)</label>
+        <input id="gfNote" maxlength="100" placeholder="Приз, подарок">
+        <button id="gfBtn" class="green full">Подарить аконы</button>
+      </div>
+
+      <h3>Заявки на вывод</h3>
+      <div id="admWd"></div>
+
+      <h3>Администраторы</h3>
+      <div class="meta">Админ видит все заказы и заявки на вывод и может начислять аконы. Выдавайте только тем, кому доверяете.</div>
+      <div id="admList"></div>
+      <div id="grantWrap" class="hide">
+        <label for="gaUser" style="display:block;margin-top:10px">Кому выдать админку</label>
+        <select id="gaUser"></select>
+        <button id="gaBtn" class="green full">Выдать админку</button>
+      </div>
+      <div id="delWrap" class="hide">
+        <h3>Удаление аккаунтов</h3>
+        <div class="meta">Удаляется аккаунт, его баланс, история и завершённые заказы. Нельзя удалить того, у кого есть незавершённые заказы или заявка на вывод.</div>
+        <select id="delUser"></select>
+        <button id="delBtn" class="red full">Удалить аккаунт</button>
+      </div>
+    </div>
+
+    <div id="walletBox" class="panel">
+      <h2>Мой баланс</h2>
+      <div class="big" id="balA">0 акон</div>
+      <div class="meta" id="balT">≈ 0 ₸</div>
+      <div class="meta" id="buyInfo"></div>
+      <details>
+        <summary>Вывести аконы в тенге</summary>
+        <label for="wdAmt" style="display:block;margin-top:10px">Сколько аконов вывести</label>
+        <input id="wdAmt" type="number" min="1" step="1" inputmode="numeric">
+        <div class="hint" id="wdHint">Курс: 5 акон = 1 ₸.</div>
+        <label for="wdDet">Как вам выплатить (видит только владелец сайта)</label>
+        <input id="wdDet" maxlength="100" placeholder="Например: Kaspi, номер или другое">
+        <button id="wdBtn" class="full">Отправить заявку на вывод</button>
+      </details>
+      <div id="wdList"></div>
+    </div>
+
+    <div id="customerUI" class="hide">
+      <div class="panel">
+        <h2>Новый заказ</h2>
+        <label for="oCat">Раздел</label>
+        <select id="oCat">
+          <option value="gaming">Гейминг (буст и помощь в играх)</option>
+          <option value="shopping">Покупки (аккаунты, валюта)</option>
+        </select>
+        <label for="oTitle">Что нужно сделать</label>
+        <input id="oTitle" maxlength="100" placeholder="Например: поднять ранг до Мастера">
+        <label for="oDesc">Подробности</label>
+        <textarea id="oDesc" rows="3" maxlength="1000" placeholder="Игра, детали, пожелания, сроки"></textarea>
+        <label for="oLink">Ссылка на задание (необязательно)</label>
+        <input id="oLink" maxlength="300" placeholder="https://...">
+        <label for="oPrice">Цена заказа (акон). Эти аконы сразу удерживаются с вашего баланса</label>
+        <input id="oPrice" type="number" min="1" step="1" inputmode="numeric" placeholder="1000">
+        <div class="hint" id="feeHint">Комиссия сервиса 15%, остальное получает исполнитель.</div>
+        <button id="createBtn" class="full">Опубликовать заказ</button>
+      </div>
+      <h2>Мои заказы</h2>
+      <div id="myOrders"></div>
+    </div>
+
+    <div id="performerUI" class="hide">
+      <div id="subBox" class="panel"></div>
+      <div class="tabs">
+        <button id="tabOpen" class="active">Свободные заказы</button>
+        <button id="tabMine">Мои заказы</button>
+      </div>
+      <div class="tabs" id="catTabs">
+        <button data-cat="all" class="active">Все разделы</button>
+        <button data-cat="gaming">Гейминг</button>
+        <button data-cat="shopping">Покупки</button>
+      </div>
+      <div id="perfList"></div>
+    </div>
+
+    <div id="chatBox" class="panel hide">
+      <div id="chatHead"><h2 id="chatTitle"></h2><button id="chatHide" class="ghost">Свернуть</button></div>
+      <div id="chatMsgs"></div>
+      <div id="chatOpen">
+        <div id="chatSend">
+          <input id="chatInput" maxlength="500" placeholder="Напишите сообщение">
+          <button id="chatSendBtn">Отправить</button>
+        </div>
+        <button id="chatAgree" class="green full">Согласен, завершить чат</button>
+      </div>
+      <div id="chatClosed" class="hide">Чат завершён. Стороны согласны.</div>
+    </div>
+
+    <div class="note">Аконы — внутренняя валюта сайта: 50 акон = 10 ₸. Многие игры запрещают буст и продажу аккаунтов. Вы действуете на свой риск, сайт не отвечает за блокировки.</div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://lblapgwfycrpgvccofsa.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_rE373H9q8tGQAy3Fcx1eIA_gYkF6arr';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ---------- Настройки ----------
+  const RATE = 5;            // 5 акон = 1 ₸ (50 акон = 10 ₸)
+  const FEE_PERCENT = 15;    // комиссия сервиса
+  const SUB_PRICE = 500;     // подписка исполнителя, акон (= 100 ₸)
+  const BUY_INFO = 'Чтобы купить аконы, оплатите владельцу сайта и сообщите ему. Он начислит их на ваш баланс.';
+  const CAT = { gaming: 'Гейминг', shopping: 'Покупки' };
+  const STATUS = { open: 'Ищет исполнителя', accepted: 'В работе', done: 'Выполнен, ждёт выплаты', paid: 'Выплачено' };
+
+  const $ = id => document.getElementById(id);
+  const nA = n => Number(n).toLocaleString('ru-RU');
+  const fmtA = n => nA(n) + ' акон';
+  const fmtT = n => '≈ ' + (Number(n) / RATE).toLocaleString('ru-RU', { maximumFractionDigits: 2 }) + ' ₸';
+  const feeOf = p => Math.round(Number(p) * FEE_PERCENT / 100);
+  const payoutOf = p => Number(p) - feeOf(p);
+
+  let me = null, balance = 0, isAdmin = false, isOwner = false, isRegister = false;
+  let perfTab = 'open', catFilter = 'all';
+
+  function say(text, cls) { const m = $('appMsg'); m.textContent = text || ''; m.className = 'msg ' + (cls || ''); }
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function btn(text, cls, fn) {
+    const b = el('button', cls, text);
+    b.onclick = async () => { b.disabled = true; try { await fn(); } finally { b.disabled = false; } };
+    return b;
+  }
+  async function call(fn, args, okText) {
+    const { error } = await sb.rpc(fn, args);
+    if (error) { say(error.message, 'err'); return false; }
+    say(okText || '', okText ? 'ok' : '');
+    await refreshAll();
+    return true;
+  }
+
+  // ---------- Авторизация ----------
+  $('toggleAuth').onclick = e => {
+    e.preventDefault();
+    isRegister = !isRegister;
+    $('authTitle').textContent = isRegister ? 'Регистрация' : 'Вход';
+    $('authBtn').textContent = isRegister ? 'Создать аккаунт' : 'Войти';
+    $('toggleAuth').textContent = isRegister ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться';
+    $('regFields').classList.toggle('hide', !isRegister);
+    $('authMsg').textContent = '';
+  };
+
+  function authSay(t, c) { $('authMsg').textContent = t; $('authMsg').className = 'msg ' + (c || ''); }
+
+  $('authBtn').onclick = async () => {
+    const email = $('email').value.trim(), password = $('pass').value;
+    const name = $('name').value.trim(), role = $('role').value;
+    authSay('');
+    if (!email || !password) return authSay('Заполните почту и пароль', 'err');
+    if (isRegister && !name) return authSay('Укажите имя', 'err');
+    $('authBtn').disabled = true;
+    try {
+      if (isRegister) {
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, role } } });
+        if (error) return authSay(error.message, 'err');
+        if (!data.session) return authSay('Аккаунт создан. Подтвердите почту по письму, затем войдите.', 'ok');
+      } else {
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) return authSay('Ошибка входа: ' + error.message, 'err');
+      }
+      await start();
+    } finally { $('authBtn').disabled = false; }
+  };
+
+  $('roleSwitch').onclick = async () => {
+    $('roleSwitch').disabled = true;
+    const { error } = await sb.rpc('switch_role', { r: me.role === 'customer' ? 'performer' : 'customer' });
+    $('roleSwitch').disabled = false;
+    if (error) return say(error.message, 'err');
+    location.reload();
+  };
+
+  $('logoutBtn').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+  async function loadProfile(user) {
+    let { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+    if (!data) {
+      const md = user.user_metadata || {};
+      if (!md.name || !md.role) return null;
+      const ins = await sb.from('profiles').insert({ id: user.id, name: md.name, role: md.role }).select().single();
+      if (ins.error) { console.error(ins.error); return null; }
+      data = ins.data;
+    }
+    return data;
+  }
+
+  async function start() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { $('authView').classList.remove('hide'); $('appView').classList.add('hide'); return; }
+    me = await loadProfile(session.user);
+    if (!me) {
+      $('authView').classList.remove('hide');
+      return authSay('Профиль не найден. Зарегистрируйтесь заново.', 'err');
+    }
+    $('authView').classList.add('hide');
+    $('appView').classList.remove('hide');
+    $('who').textContent = me.name + ' · ' + (me.role === 'customer' ? 'заказчик' : 'исполнитель');
+    $('roleSwitch').textContent = me.role === 'customer' ? 'Стать исполнителем' : 'Стать заказчиком';
+    $('customerUI').classList.toggle('hide', me.role !== 'customer');
+    $('performerUI').classList.toggle('hide', me.role !== 'performer');
+    $('buyInfo').textContent = BUY_INFO;
+    const adm = await sb.rpc('is_admin');
+    isAdmin = !adm.error && adm.data === true;
+    const own = isAdmin ? await sb.rpc('is_owner') : null;
+    isOwner = !!(own && !own.error && own.data === true);
+    $('adminBox').classList.toggle('hide', !isAdmin);
+    refreshAll();
+    if (!window._timer) window._timer = setInterval(refreshAll, 8000);
+  }
+
+  async function refreshAll() {
+    await Promise.all([loadWallet(), refresh(), loadSub(), isAdmin ? loadAdmin() : null]);
+  }
+
+  // ---------- Баланс и вывод ----------
+  async function loadWallet() {
+    const { data } = await sb.from('wallets').select('balance').eq('user_id', me.id).maybeSingle();
+    balance = data ? Number(data.balance) : 0;
+    $('balChip').textContent = fmtA(balance);
+    $('balA').textContent = fmtA(balance);
+    $('balT').textContent = fmtT(balance);
+    const w = await sb.from('withdrawals').select('*').eq('user_id', me.id).order('created_at', { ascending: false }).limit(5);
+    const box = $('wdList'); box.replaceChildren();
+    const L = { pending: 'ожидает выплаты', paid: 'выплачено', rejected: 'отклонено, аконы возвращены' };
+    (w.data || []).forEach(x => box.append(el('div', 'meta', 'Вывод ' + fmtA(x.amount) + ' (' + fmtT(x.amount) + '): ' + L[x.status])));
+  }
+
+  $('wdAmt').oninput = () => {
+    const a = Math.floor(Number($('wdAmt').value));
+    $('wdHint').textContent = a > 0 ? 'Вы получите ' + fmtT(a) + '.' : 'Курс: 5 акон = 1 ₸.';
+  };
+  $('wdBtn').onclick = async () => {
+    const amt = Math.floor(Number($('wdAmt').value)), det = $('wdDet').value.trim();
+    if (!(amt > 0)) return say('Укажите, сколько аконов вывести', 'err');
+    $('wdBtn').disabled = true;
+    const ok = await call('request_withdrawal', { amt, det }, 'Заявка на вывод отправлена. Владелец выплатит тенге.');
+    $('wdBtn').disabled = false;
+    if (ok) { $('wdAmt').value = ''; }
+  };
+
+  // ---------- Подписка исполнителя ----------
+  async function loadSub() {
+    if (me.role !== 'performer') return;
+    const { data } = await sb.from('subscriptions').select('*').eq('user_id', me.id).maybeSingle();
+    const active = !!(data && data.paid_until && new Date(data.paid_until) > new Date());
+    const box = $('subBox'); box.replaceChildren();
+    if (active) {
+      box.append(el('div', '', 'Подписка активна до ' + new Date(data.paid_until).toLocaleDateString('ru-RU') + '. Можно принимать заказы.'));
+      return;
+    }
+    box.append(el('b', '', 'Чтобы принимать заказы, нужна подписка'));
+    box.append(el('div', 'meta', fmtA(SUB_PRICE) + ' (' + fmtT(SUB_PRICE) + ') на 30 дней. Спишется с вашего баланса.'));
+    const a = el('div', 'actions');
+    a.append(btn('Купить подписку за ' + fmtA(SUB_PRICE), 'green', () => call('buy_subscription', {}, 'Подписка оформлена')));
+    box.append(a);
+  }
+
+  // ---------- Заказы ----------
+  $('oPrice').oninput = () => {
+    const p = Math.floor(Number($('oPrice').value));
+    $('feeHint').textContent = p > 0
+      ? fmtT(p) + '. Комиссия сервиса ' + FEE_PERCENT + '% (' + fmtA(feeOf(p)) + '), исполнитель получит ' + fmtA(payoutOf(p)) + '.'
+      : 'Комиссия сервиса ' + FEE_PERCENT + '%, остальное получает исполнитель.';
+  };
+
+  $('createBtn').onclick = async () => {
+    const title = $('oTitle').value.trim(), price = Math.floor(Number($('oPrice').value));
+    if (!title || !(price > 0)) return say('Укажите, что сделать, и цену больше нуля', 'err');
+    $('createBtn').disabled = true;
+    const ok = await call('create_order', {
+      t: title, dsc: $('oDesc').value.trim(), lnk: $('oLink').value.trim(), p: price, cat: $('oCat').value
+    }, 'Заказ опубликован. Аконы удержаны до выполнения.');
+    $('createBtn').disabled = false;
+    if (ok) ['oTitle', 'oDesc', 'oLink', 'oPrice'].forEach(i => $(i).value = '');
+  };
+
+  async function namesFor(orders) {
+    const ids = [...new Set(orders.flatMap(o => [o.customer_id, o.performer_id]).filter(Boolean))];
+    if (!ids.length) return {};
+    const { data } = await sb.from('profiles').select('id,name').in('id', ids);
+    return Object.fromEntries((data || []).map(p => [p.id, p.name]));
+  }
+
+  function card(o, names) {
+    const c = el('div', 'order');
+    const top = el('div', 'row');
+    top.append(el('div', 't', o.title));
+    const pr = el('div', 'price');
+    const shown = me.role === 'performer' ? payoutOf(o.price) : Number(o.price);
+    pr.append(document.createTextNode(fmtA(shown)), el('small', '', fmtT(shown)));
+    top.append(pr);
+    c.append(top);
+    const bd = el('div', 'badges');
+    bd.append(el('span', 'badge cat', CAT[o.category] || 'Гейминг'), el('span', 'badge ' + o.status, STATUS[o.status]));
+    c.append(bd);
+    if (o.description) c.append(el('div', 'desc', o.description));
+    if (o.link) {
+      const l = el('div', 'meta', 'Ссылка: ');
+      if (/^https?:\/\//i.test(o.link)) {
+        const a = el('a', '', o.link); a.href = o.link; a.target = '_blank'; a.rel = 'noopener noreferrer'; l.append(a);
+      } else l.append(document.createTextNode(o.link));
+      c.append(l);
+    }
+    const extra = [];
+    if (me.role === 'performer') extra.push('Вы получите ' + fmtA(payoutOf(o.price)) + ' (цена ' + fmtA(o.price) + ', комиссия сервиса ' + FEE_PERCENT + '%)');
+    else extra.push('Цена ' + fmtA(o.price) + ': исполнителю ' + fmtA(payoutOf(o.price)) + ', комиссия ' + FEE_PERCENT + '% (' + fmtA(feeOf(o.price)) + ')');
+    if (me.role === 'performer' && names[o.customer_id]) extra.push('Заказчик: ' + names[o.customer_id]);
+    if (me.role === 'customer' && o.performer_id && names[o.performer_id]) extra.push('Исполнитель: ' + names[o.performer_id]);
+    extra.push(new Date(o.created_at).toLocaleString('ru-RU'));
+    c.append(el('div', 'meta', extra.join(' · ')));
+    if (o.performer_id) {
+      const other = (me.role === 'customer' ? names[o.performer_id] : names[o.customer_id]) || 'собеседник';
+      const cb = el('div', 'actions');
+      cb.append(btn(o.chat_closed ? 'Чат завершён (читать)' : 'Открыть чат', 'ghost', () => openChat(o, other)));
+      c.append(cb);
+    }
+    return c;
+  }
+
+  async function refresh() {
+    if (me.role === 'customer') {
+      const { data, error } = await sb.from('orders').select('*').eq('customer_id', me.id).order('created_at', { ascending: false });
+      if (error) return say(error.message, 'err');
+      const names = await namesFor(data);
+      const box = $('myOrders'); box.replaceChildren();
+      if (!data.length) box.append(el('div', 'empty', 'У вас пока нет заказов'));
+      data.forEach(o => {
+        const c = card(o, names), a = el('div', 'actions');
+        if (o.status === 'open') a.append(btn('Отменить заказ (аконы вернутся)', 'red', () => call('cancel_order', { oid: o.id }, 'Заказ отменён, аконы возвращены')));
+        if (o.status === 'done') a.append(btn('Подтвердить и выплатить исполнителю', 'green', () => call('confirm_payment', { oid: o.id }, 'Исполнителю выплачено')));
+        if (a.children.length) c.append(a);
+        box.append(c);
+      });
+    } else {
+      let q = sb.from('orders').select('*').order('created_at', { ascending: false });
+      q = perfTab === 'open' ? q.eq('status', 'open') : q.eq('performer_id', me.id);
+      if (perfTab === 'open' && catFilter !== 'all') q = q.eq('category', catFilter);
+      const { data, error } = await q;
+      if (error) return say(error.message, 'err');
+      const names = await namesFor(data);
+      const box = $('perfList'); box.replaceChildren();
+      if (!data.length) box.append(el('div', 'empty', perfTab === 'open'
+        ? 'Свободных заказов нет. Новые появятся здесь сразу.' : 'Вы ещё не брали заказы.'));
+      data.forEach(o => {
+        const c = card(o, names), a = el('div', 'actions');
+        if (o.status === 'open') a.append(btn('Принять заказ', '', () => call('accept_order', { oid: o.id }, 'Вы взяли заказ')));
+        if (o.status === 'accepted') a.append(btn('Я выполнил', 'green', () => call('complete_order', { oid: o.id }, 'Отмечено как выполненное')));
+        if (o.status === 'done') a.append(el('span', 'meta', 'Ждём подтверждения заказчика'));
+        if (o.status === 'paid') a.append(el('span', 'meta', 'Вам выплачено ' + fmtA(payoutOf(o.price))));
+        if (a.children.length) c.append(a);
+        box.append(c);
+      });
+    }
+  }
+
+  $('tabOpen').onclick = () => { perfTab = 'open'; $('tabOpen').classList.add('active'); $('tabMine').classList.remove('active'); $('catTabs').classList.remove('hide'); refresh(); };
+  $('tabMine').onclick = () => { perfTab = 'mine'; $('tabMine').classList.add('active'); $('tabOpen').classList.remove('active'); $('catTabs').classList.add('hide'); refresh(); };
+  $('catTabs').onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    catFilter = b.dataset.cat;
+    [...$('catTabs').children].forEach(x => x.classList.toggle('active', x === b));
+    refresh();
+  };
+
+  // ---------- Панель владельца ----------
+  let delKey = ''; let admUsersKey = '', grantKey = '';
+  $('delBtn').onclick = async () => {
+    const uid = $('delUser').value;
+    if (!uid) return say('Выберите аккаунт', 'err');
+    const nm = $('delUser').selectedOptions[0].textContent;
+    if (!confirm('Удалить аккаунт: ' + nm + '? Это нельзя отменить. Его аконы и история пропадут.')) return;
+    delKey = '';
+    await call('admin_delete_user', { uid }, 'Аккаунт удалён');
+  };
+  $('gaBtn').onclick = async () => {
+    const uid = $('gaUser').value;
+    if (!uid) return say('Выберите человека', 'err');
+    $('gaBtn').disabled = true;
+    await call('grant_admin', { uid }, 'Админка выдана');
+    $('gaBtn').disabled = false;
+  };
+  $('crAmt').oninput = () => {
+    const t = Math.floor(Number($('crAmt').value));
+    $('crHint').textContent = t > 0 ? 'Будет начислено ' + fmtA(t * RATE) + '.' : '';
+  };
+  $('gfBtn').onclick = async () => {
+    const amt = Math.floor(Number($('gfAmt').value)), uid = $('gfUser').value;
+    if (!uid || !(amt > 0)) return say('Выберите человека и сумму', 'err');
+    $('gfBtn').disabled = true;
+    const ok = await call('admin_gift', { uid, amt, nt: $('gfNote').value.trim() }, 'Подарено ' + fmtA(amt));
+    $('gfBtn').disabled = false;
+    if (ok) { $('gfAmt').value = ''; $('gfNote').value = ''; }
+  };
+  $('crBtn').onclick = async () => {
+    const tg = Math.floor(Number($('crAmt').value)), uid = $('crUser').value;
+    if (!uid || !(tg > 0)) return say('Выберите, кто заплатил, и сумму в тенге', 'err');
+    $('crBtn').disabled = true;
+    const ok = await call('admin_buy', { uid, tg }, 'Начислено ' + fmtA(tg * RATE) + ' за ' + nA(tg) + ' ₸');
+    $('crBtn').disabled = false;
+    if (ok) { $('crAmt').value = ''; $('crHint').textContent = ''; }
+  };
+
+  async function loadAdmin() {
+    const [o, l, p, w, a, b] = await Promise.all([
+      sb.from('orders').select('status,escrow,fee'),
+      sb.from('ledger').select('amount').eq('kind', 'subscription'),
+      sb.from('profiles').select('id,name,role').order('name'),
+      sb.from('withdrawals').select('*').eq('status', 'pending').order('created_at'),
+      sb.rpc('list_admins'),
+      sb.from('ledger').select('user_id,amount,tenge,actor,created_at,kind,note').in('kind', ['purchase', 'gift']).order('created_at', { ascending: false }).limit(1000)
+    ]);
+    if (o.error || l.error || p.error || w.error) return;
+    const fees = o.data.filter(x => x.status === 'paid').reduce((s, x) => s + Number(x.fee), 0);
+    const subs = -l.data.reduce((s, x) => s + Number(x.amount), 0);
+    const pending = o.data.filter(x => x.status === 'accepted' || x.status === 'done').reduce((s, x) => s + feeOf(x.escrow), 0);
+    $('admTotal').textContent = fmtA(fees + subs);
+    $('admTotalT').textContent = fmtT(fees + subs);
+    $('admFees').textContent = fmtA(fees);
+    $('admSubs').textContent = fmtA(subs);
+    $('admPending').textContent = nA(pending);
+
+    const key = p.data.map(x => x.id).join(',');
+    if (key !== admUsersKey) {
+      admUsersKey = key;
+      ['crUser', 'gfUser'].forEach(sid => {
+        const sel = $(sid), keep = sel.value; sel.replaceChildren();
+        p.data.forEach(x => {
+          const op = el('option', '', x.name + ' · ' + (x.role === 'customer' ? 'заказчик' : 'исполнитель') + ' · ' + x.id.slice(0, 4));
+          op.value = x.id; sel.append(op);
+        });
+        if (keep) sel.value = keep;
+      });
+    }
+
+    if (!b.error) {
+      const pn = Object.fromEntries(p.data.map(x => [x.id, x.name]));
+      const total = b.data.filter(x => x.kind === 'purchase').reduce((s, x) => s + Number(x.tenge || 0), 0);
+      $('admBuysTotal').textContent = 'Всего получено за аконы: ' + nA(total) + ' ₸';
+      const bb = $('admBuys'); bb.replaceChildren();
+      if (!b.data.length) bb.append(el('div', 'meta', 'Начислений пока нет.'));
+      b.data.slice(0, 10).forEach(x => bb.append(el('div', 'meta',
+        new Date(x.created_at).toLocaleString('ru-RU') + ' · ' + (pn[x.user_id] || 'Без имени') + ': ' + fmtA(x.amount) +
+        (x.kind === 'gift'
+          ? ' в подарок' + (x.note ? ' (' + x.note + ')' : '') + ', подарил '
+          : ' за ' + nA(x.tenge) + ' ₸, начислил ') + (pn[x.actor] || 'админ'))));
+    }
+
+    $('giftWrap').classList.toggle('hide', !isOwner);
+    const aBox = $('admList'); aBox.replaceChildren();
+    if (!a.error) {
+      const adminIds = new Set(a.data.map(x => x.user_id));
+      a.data.forEach(x => {
+        const r = el('div', 'actions');
+        r.append(el('span', '', (x.name || 'Без имени') + (x.is_owner ? ' · владелец' : '')));
+        if (isOwner && !x.is_owner) r.append(btn('Снять админку', 'red', () => call('revoke_admin', { uid: x.user_id }, 'Админка снята')));
+        aBox.append(r);
+      });
+      $('grantWrap').classList.toggle('hide', !isOwner);
+      $('delWrap').classList.toggle('hide', !isOwner);
+      const dcand = p.data.filter(x => !adminIds.has(x.id));
+      const dkey = dcand.map(x => x.id).join(',');
+      if (dkey !== delKey) {
+        delKey = dkey;
+        const ds = $('delUser'), keep = ds.value; ds.replaceChildren();
+        dcand.forEach(x => {
+          const op = el('option', '', x.name + ' · ' + (x.role === 'customer' ? 'заказчик' : 'исполнитель') + ' · ' + x.id.slice(0, 4));
+          op.value = x.id; ds.append(op);
+        });
+        if (keep) ds.value = keep;
+      }
+      const cand = p.data.filter(x => !adminIds.has(x.id));
+      const gkey = cand.map(x => x.id).join(',');
+      if (gkey !== grantKey) {
+        grantKey = gkey;
+        const gs = $('gaUser'), keep = gs.value; gs.replaceChildren();
+        cand.forEach(x => {
+          const op = el('option', '', x.name + ' · ' + (x.role === 'customer' ? 'заказчик' : 'исполнитель') + ' · ' + x.id.slice(0, 4));
+          op.value = x.id; gs.append(op);
+        });
+        if (keep) gs.value = keep;
+      }
+    }
+
+    const nm = Object.fromEntries(p.data.map(x => [x.id, x.name]));
+    const box = $('admWd'); box.replaceChildren();
+    if (!w.data.length) box.append(el('div', 'meta', 'Заявок нет.'));
+    w.data.forEach(x => {
+      const r = el('div', 'order');
+      r.append(el('div', 't', (nm[x.user_id] || 'Без имени') + ': ' + fmtA(x.amount) + ' (' + fmtT(x.amount) + ')'));
+      r.append(el('div', 'meta', 'Выплатить: ' + x.details));
+      const a = el('div', 'actions');
+      a.append(btn('Выплатил', 'green', () => call('finish_withdrawal', { wid: x.id, ok: true }, 'Отмечено как выплаченное')));
+      a.append(btn('Отклонить (вернуть аконы)', 'red', () => call('finish_withdrawal', { wid: x.id, ok: false }, 'Заявка отклонена')));
+      r.append(a);
+      box.append(r);
+    });
+  }
+
+  // ---------- Чат ----------
+  let chatOrder = null, chatOther = '', chatTimer = null, chatCount = 0;
+
+  function openChat(o, other) {
+    chatOrder = o.id; chatOther = other; chatCount = 0;
+    $('chatTitle').textContent = 'Чат: ' + o.title;
+    $('chatMsgs').replaceChildren();
+    $('chatBox').classList.remove('hide');
+    $('chatBox').scrollIntoView({ behavior: 'smooth' });
+    loadChat();
+    clearInterval(chatTimer);
+    chatTimer = setInterval(loadChat, 4000);
+  }
+  $('chatHide').onclick = () => { chatOrder = null; clearInterval(chatTimer); $('chatBox').classList.add('hide'); };
+
+  async function loadChat() {
+    if (!chatOrder) return;
+    const oid = chatOrder;
+    const [m, o] = await Promise.all([
+      sb.from('messages').select('*').eq('order_id', oid).order('created_at', { ascending: true }),
+      sb.from('orders').select('chat_closed').eq('id', oid).maybeSingle()
+    ]);
+    if (oid !== chatOrder) return;
+    if (m.error) return say('Чат: ' + m.error.message, 'err');
+    const box = $('chatMsgs');
+    const stick = box.scrollTop + box.clientHeight >= box.scrollHeight - 40;
+    box.replaceChildren();
+    if (!m.data.length) box.append(el('div', 'empty', 'Сообщений пока нет. Напишите первым.'));
+    m.data.forEach(x => {
+      const mine = x.sender_id === me.id;
+      const b = el('div', 'bubble ' + (mine ? 'mine' : 'theirs'));
+      b.append(el('small', '', mine ? 'Вы' : chatOther), document.createTextNode(x.body));
+      box.append(b);
+    });
+    if (stick || m.data.length !== chatCount) box.scrollTop = box.scrollHeight;
+    chatCount = m.data.length;
+    const closed = !!(o.data && o.data.chat_closed);
+    $('chatOpen').classList.toggle('hide', closed);
+    $('chatClosed').classList.toggle('hide', !closed);
+  }
+
+  async function sendMsg() {
+    const body = $('chatInput').value.trim();
+    if (!body || !chatOrder) return;
+    $('chatSendBtn').disabled = true;
+    const { error } = await sb.from('messages').insert({ order_id: chatOrder, sender_id: me.id, body });
+    $('chatSendBtn').disabled = false;
+    if (error) return say('Не отправлено: ' + error.message, 'err');
+    $('chatInput').value = '';
+    loadChat();
+  }
+  $('chatSendBtn').onclick = sendMsg;
+  $('chatInput').onkeydown = e => { if (e.key === 'Enter') sendMsg(); };
+
+  $('chatAgree').onclick = async () => {
+    if (!chatOrder) return;
+    $('chatAgree').disabled = true;
+    const { error } = await sb.rpc('close_chat', { oid: chatOrder });
+    $('chatAgree').disabled = false;
+    if (error) say(error.message, 'err'); else say('Чат завершён', 'ok');
+    loadChat();
+  };
+
+  start();
+</script>
+</body>
+</html>
